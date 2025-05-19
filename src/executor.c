@@ -11,7 +11,7 @@
 #include "redirect.h"
 
 // 내부 명령어 처리
-int handle_internal_command(Command cmd) {
+int handle_internal_command(Command cmd, EnvVar* env_list) {
     if (strcmp(cmd.name, "exit") == 0) {
         printf("Bye!\n");
         exit(0);
@@ -51,11 +51,30 @@ int handle_internal_command(Command cmd) {
         }
         return 1; // 내부 명령 처리 완료
     }
+    if (strcmp(cmd.name, "unset") == 0){
+        if (cmd.args[1] == NULL){
+            fprintf(stderr, "unset : 변수 이름을 입력하세요.\n");
+        }
+        else {
+            char* key = cmd.args[1];
+
+            // 이 부분만 실행하면 오류가 생겨서 잠시 남겨두겠습니다다
+            ////////////////////////////////////////////////////////////////////////////
+            //remove_env_var(&env_list, key);
+
+            if (unsetenv(key) != 0){
+                perror("환경 변수 제거 실패");
+            }
+        }
+
+        return 1;
+    }
+    
     return 0; // 외부 명령 실행 필요
 }
 
 
-int execute_commands(Command* cmds, int num_cmds) {
+int execute_commands(Command* cmds, int num_cmds, EnvVar* env_list) {
  
     int pipe_fd[2] = {-1,-1};
     int prev_read_fd = -1;
@@ -70,7 +89,7 @@ int execute_commands(Command* cmds, int num_cmds) {
         }
 
         // 내부 명령어 처리
-        if (handle_internal_command(cmds[i])){
+        if (handle_internal_command(cmds[i], env_list)){
             if (prev_read_fd != -1) close(prev_read_fd);
             if (pipe_fd[0] != -1) close(pipe_fd[0]);
             if (pipe_fd[1] != -1) close(pipe_fd[1]);
@@ -142,6 +161,9 @@ int execute_commands(Command* cmds, int num_cmds) {
                 }
             } else {
                 printf("[background] %d\n", pid);
+
+                // 백그라운드 자식이 좀비가 되지 않도록 SIGCHLD 무시
+                signal(SIGCHLD, SIG_IGN);
             }
 
             if (prev_read_fd != -1){
@@ -162,8 +184,6 @@ int execute_commands(Command* cmds, int num_cmds) {
         close(prev_read_fd);
     }
     
-    // 백그라운드 자식이 좀비가 되지 않도록 SIGCHLD 무시
-    signal(SIGCHLD, SIG_IGN);
 
     return 0;
 }

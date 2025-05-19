@@ -64,6 +64,7 @@ void print_prompt() {
 }
 
 int main() {
+    EnvVar* env_list = NULL;
     while (true) {
         print_prompt();
         char *input = read_input();
@@ -72,13 +73,19 @@ int main() {
         }
 
         int num_cmds;
-        Command* cmds = parse_input(input, &num_cmds);
+        // export를 사용하지 않고 환경 변수 입력 처리
+        if (strchr(input, '=') && strncmp(input, "export", 6) != 0) {
+            assign_env_variable(input, &env_list);
+            continue;
+        }
+        Command* cmds = parse_input(input, &num_cmds, env_list);
         free(input);
 
-        execute_commands(cmds, num_cmds);
+        execute_commands(cmds, num_cmds, env_list);
         free_commands(cmds, num_cmds);
     }
 
+    free_env_vars(env_list);
     printf("\nBye!\n");
     return 0;
 }
